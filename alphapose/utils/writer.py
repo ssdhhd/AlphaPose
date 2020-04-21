@@ -11,6 +11,9 @@ import torch.multiprocessing as mp
 from alphapose.utils.transforms import get_func_heatmap_to_coord
 from alphapose.utils.pPose_nms import pose_nms
 
+
+from alphapose.face.face import face_process
+
 DEFAULT_VIDEO_SAVE_OPT = {
     'savepath': 'examples/res/1.mp4',
     'fourcc': cv2.VideoWriter_fourcc(*'mp4v'),
@@ -76,7 +79,7 @@ class DataWriter():
                 self.video_save_opt['savepath'] = self.video_save_opt['savepath'][:-4] + _ext
                 stream = cv2.VideoWriter(*[self.video_save_opt[k] for k in ['savepath', 'fourcc', 'fps', 'frameSize']])
             assert stream.isOpened(), 'Cannot open video for writing'
-        # keep looping infinitelyd
+        # keep looping infinitely
         while True:
             # ensure the queue is not empty and get item
             (boxes, scores, ids, hm_data, cropped_boxes, orig_img, im_name) = self.wait_and_get(self.result_queue)
@@ -86,6 +89,9 @@ class DataWriter():
                 if self.save_video:
                     stream.release()
                 return
+
+            rgb_img = orig_img
+
             # image channel RGB->BGR
             orig_img = np.array(orig_img, dtype=np.uint8)[:, :, ::-1]
             if boxes is None:
@@ -97,7 +103,7 @@ class DataWriter():
                 assert pred.ndim == 4
 
                 if hm_data.size()[1] == 49:
-                    self.eval_joints = [*range(0,49)]
+                    self.eval_joints = [*range(0, 49)]
                 pose_coords = []
                 pose_scores = []
                 for i in range(hm_data.shape[0]):
@@ -108,10 +114,16 @@ class DataWriter():
                 preds_img = torch.cat(pose_coords)
                 preds_scores = torch.cat(pose_scores)
                 result = pose_nms(boxes, scores, ids, preds_img, preds_scores, self.opt.min_box_area)
+                
+                # jiasong update 2.24
+                if self.opt.face:
+                    result = face_process(self.opt, result, rgb_img, orig_img, boxes, scores, ids, preds_img, preds_scores)
+
                 result = {
                     'imgname': im_name,
                     'result': result
                 }
+
                 if self.opt.pose_track:
                     poseflow_result = self.pose_flow_wrapper.step(orig_img, result)
                     for i in range(len(poseflow_result)):
@@ -124,7 +136,13 @@ class DataWriter():
                         from alphapose.utils.vis import vis_frame_fast as vis_frame
                     else:
                         from alphapose.utils.vis import vis_frame
+<<<<<<< HEAD
                     img = vis_frame(orig_img, result, add_bbox=(self.opt.pose_track | self.opt.tracking | self.opt.showbox))
+=======
+                    
+                    # jiasong update 3.1
+                    img = vis_frame(orig_img, result, self.opt)
+>>>>>>> pr524
                     self.write_image(img, im_name, stream=stream if self.save_video else None)
 
     def write_image(self, img, im_name, stream=None):
@@ -171,7 +189,7 @@ class DataWriter():
     def clear_queues(self):
         self.clear(self.result_queue)
         self.clear(self.final_result_queue)
-        
+
     def clear(self, queue):
         while not queue.empty():
             queue.get()
@@ -195,4 +213,3 @@ class DataWriter():
         else:
             print("Unknow video format {}, will use .mp4 instead of it".format(ext))
             return cv2.VideoWriter_fourcc(*'mp4v'), '.mp4'
-

@@ -296,17 +296,22 @@ def write_json(all_results, outputpath, form=None, for_eval=False):
     '''
     json_results = []
     json_results_cmu = {}
+
     for im_res in all_results:
         im_name = im_res['imgname']
+
         for human in im_res['result']:
+            
             keypoints = []
+            facepoints = []
             result = {}
             if for_eval:
                 result['image_id'] = int(os.path.basename(im_name).split('.')[0].split('_')[-1])
             else:
                 result['image_id'] = os.path.basename(im_name)
             result['category_id'] = 1
-
+            
+            
             kp_preds = human['keypoints']
             kp_scores = human['kp_score']
             pro_scores = human['proposal_score']
@@ -314,9 +319,25 @@ def write_json(all_results, outputpath, form=None, for_eval=False):
                 keypoints.append(float(kp_preds[n, 0]))
                 keypoints.append(float(kp_preds[n, 1]))
                 keypoints.append(float(kp_scores[n]))
+
+            if face:
+                fc_preds = human['FaceKeypoint']
+
+                for n in range(fc_preds.shape[0]):
+                    facepoints.append(float(fc_preds[n, 0]))
+                    facepoints.append(float(fc_preds[n, 1]))
+                    # facepoints.append(float(fc_preds[n, 2]))
+                result['face'] = facepoints
+                
             result['keypoints'] = keypoints
+
             result['score'] = float(pro_scores)
+<<<<<<< HEAD
             result['box'] = human['box']
+=======
+            
+                
+>>>>>>> pr524
             #pose track results by PoseFlow
             if 'idx' in human.keys():
                 result['idx'] = human['idx']
